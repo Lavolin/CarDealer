@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,9 +15,9 @@ namespace CarDealer
         {
             CarDealerContext dbContext = new CarDealerContext();
 
-            string xml = File.ReadAllText("../../../Datasets/parts.xml");
+            string xml = File.ReadAllText("../../../Datasets/cars.xml");
 
-            string result = ImportParts(dbContext, xml);
+            string result = ImportCars(dbContext, xml);
 
             Console.WriteLine(result);
 
@@ -83,6 +82,50 @@ namespace CarDealer
             context.SaveChanges();
 
             return $"Successfully imported {parts.Count}";
+        }
+
+        //Query 11. Import Cars
+        public static string ImportCars(CarDealerContext context, string inputXml)
+        {
+            XmlRootAttribute xmlRoot = new XmlRootAttribute("Cars");
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(ImportCarsDto[]), xmlRoot);
+
+            using StringReader reader = new StringReader(inputXml);
+            ImportCarsDto[] carsDtos = (ImportCarsDto[])xmlSerializer.Deserialize(reader);
+
+            ICollection<Car> cars = new List<Car>();
+            foreach (ImportCarsDto carsDto in carsDtos)
+            {
+                Car car = new Car()
+                {
+                    Make = carsDto.Make,
+                    Model = carsDto.Model,
+                    TravelledDistance = carsDto.TraveledDistance
+                };
+
+                ICollection<PartCar> currCarPart = new List<PartCar>();
+                foreach (int partId in carsDto.Parts.Select(p => p.Id).Distinct())
+                {
+                    if (!context.Parts.Any(p => p.Id == partId))
+                    {
+                        continue;
+                    }
+
+                    currCarPart.Add(new PartCar()
+                    {
+                        Car = car,
+                        PartId = partId
+                    });
+                }
+
+                car.PartCars = currCarPart;
+                cars.Add(car);
+            }
+
+            context.Cars.AddRange(cars);
+            context.SaveChanges();
+
+            return $"Successfully imported {cars.Count}";
         }
 
         //Helper xml method
