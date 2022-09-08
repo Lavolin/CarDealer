@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
 using CarDealer.Data;
 using CarDealer.Dtos.Import;
 using CarDealer.Models;
+
 
 namespace CarDealer
 {
@@ -15,9 +17,9 @@ namespace CarDealer
         {
             CarDealerContext dbContext = new CarDealerContext();
 
-            string xml = File.ReadAllText("../../../Datasets/cars.xml");
+            string xml = File.ReadAllText("../../../Datasets/sales.xml");
 
-            string result = ImportCars(dbContext, xml);
+            string result = ImportSales(dbContext, xml);
 
             Console.WriteLine(result);
 
@@ -126,6 +128,58 @@ namespace CarDealer
             context.SaveChanges();
 
             return $"Successfully imported {cars.Count}";
+        }
+
+        //Query 12. Import Customers
+        public static string ImportCustomers(CarDealerContext context, string inputXml)
+        {
+            string rootName = "Customers";
+            ImportCustomerDto[] customerDtos = Deserialize<ImportCustomerDto[]>(inputXml, rootName);
+
+            Customer[] customers = customerDtos
+                .Select(c => new Customer
+                {
+                    Name = c.Name,
+                    BirthDate = DateTime.Parse(c.BirthDate, CultureInfo.InvariantCulture),
+                    IsYoungDriver = c.IsYoungDriver
+                })
+                .ToArray();
+
+            context.Customers.AddRange(customers);
+            context.SaveChanges();
+
+            return $"Successfully imported {customers.Length}";
+        }
+
+
+        //Query 13. Import Sales
+        public static string ImportSales(CarDealerContext context, string inputXml)
+        {
+            string rootName = "Sales";
+            ImportSalesDto[] salesDtos = Deserialize<ImportSalesDto[]>(inputXml, rootName);
+
+            ICollection<Sale> sales = new List<Sale>();
+            foreach (ImportSalesDto sDto in salesDtos)
+            {
+                if (!context.Cars.Any(c => c.Id == sDto.CarId))
+                {
+                    continue;
+                }
+
+                Sale sale = new Sale()
+                {
+                    Discount = sDto.Discount,
+                    CarId = sDto.CarId,
+                    CustomerId = sDto.CustomerId
+                };
+
+                sales.Add(sale);
+            }
+
+            context.Sales.AddRange(sales);
+            context.SaveChanges();
+
+            return $"Successfully imported {sales.Count}";
         }
 
         //Helper xml method
