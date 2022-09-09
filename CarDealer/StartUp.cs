@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Xml.Serialization;
 using CarDealer.Data;
+using CarDealer.Dtos.Export;
 using CarDealer.Dtos.Import;
 using CarDealer.Models;
 
@@ -17,9 +19,9 @@ namespace CarDealer
         {
             CarDealerContext dbContext = new CarDealerContext();
 
-            string xml = File.ReadAllText("../../../Datasets/sales.xml");
+            //string xml = File.ReadAllText("../../../Datasets/sales.xml");
 
-            string result = ImportSales(dbContext, xml);
+            string result = GetCarsWithDistance(dbContext);
 
             Console.WriteLine(result);
 
@@ -182,6 +184,45 @@ namespace CarDealer
             return $"Successfully imported {sales.Count}";
         }
 
+        //Query 14. Export Cars With Distance
+        public static string GetCarsWithDistance(CarDealerContext context)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            ExportCarsWithDistantDto[] carsDto = context
+                .Cars
+                .Where(c => c.TravelledDistance > 2000000)
+                .OrderBy(c => c.Make)
+                .ThenBy(c => c.Model)
+                .Take(10)
+                .Select(c => new ExportCarsWithDistantDto()
+                {
+                    Make = c.Make,
+                    Model = c.Model,
+                    TravelledDistance = (int)c.TravelledDistance,
+                })
+                .ToArray();
+
+            string rootName = "cars";
+            XmlRootAttribute xmlRoot = new XmlRootAttribute(rootName);
+            XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
+            namespaces.Add(string.Empty, string.Empty);
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(ExportCarsWithDistantDto[]), xmlRoot);
+
+           using StringWriter writer = new StringWriter(sb);
+
+            xmlSerializer.Serialize(writer, carsDto, namespaces);
+
+            return sb.ToString().TrimEnd();
+        }
+
+        //Query 15. Export Cars from make BMW
+        public static string GetCarsFromMakeBmw(CarDealerContext context)
+        {
+            string rootName = "cars";
+
+        }
+
         //Helper xml method
         private static T Deserialize<T>(string inputXml, string rootName)
         {
@@ -192,6 +233,23 @@ namespace CarDealer
             T dtos = (T)xmlSerializer.Deserialize(reader);
 
             return dtos;
+        }
+
+        private static string SerializeXml<T>(T dto, string rootName)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            XmlRootAttribute xmlRoot = new XmlRootAttribute(rootName);
+            XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
+            namespaces.Add(string.Empty, string.Empty);
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(ExportCarsWithDistantDto[]), xmlRoot);
+
+            using StringWriter writer = new StringWriter(sb);
+
+            xmlSerializer.Serialize(writer, dto, namespaces);
+
+            return sb.ToString().TrimEnd();
+
         }
     }
 }
