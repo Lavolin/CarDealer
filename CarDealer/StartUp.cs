@@ -21,7 +21,7 @@ namespace CarDealer
 
             //string xml = File.ReadAllText("../../../Datasets/sales.xml");
 
-            string result = GetCarsWithDistance(dbContext);
+            string result = GetLocalSuppliers(dbContext);
 
             Console.WriteLine(result);
 
@@ -219,8 +219,52 @@ namespace CarDealer
         //Query 15. Export Cars from make BMW
         public static string GetCarsFromMakeBmw(CarDealerContext context)
         {
-            string rootName = "cars";
+            StringBuilder sb = new StringBuilder();
 
+            ExportCarsBmwDto[] bmwCars = context
+                .Cars
+                .Where(c => c.Make == "BMW")
+                .OrderBy(c => c.Model)
+                .ThenByDescending(c => c.TravelledDistance)
+                .Select(c => new ExportCarsBmwDto()
+                {
+                    Id = c.Id,
+                    Model = c.Model,
+                    TraveledDistance = c.TravelledDistance
+                })
+                .ToArray();                
+
+            string rootName = "cars";
+            XmlRootAttribute xmlRoot = new XmlRootAttribute(rootName);
+            XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
+            namespaces.Add(string.Empty, string.Empty);
+
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(ExportCarsBmwDto[]), xmlRoot);
+
+            using StringWriter writer = new StringWriter(sb);
+
+            xmlSerializer.Serialize(writer, bmwCars, namespaces);
+
+            return sb.ToString().TrimEnd();
+        }
+
+        //Query 16. Export Local Suppliers
+        public static string GetLocalSuppliers(CarDealerContext context)
+        {
+            ExportLocatSuppliersDto[] localSuppliers = context
+                .Suppliers
+                .Where(s => !s.IsImporter)
+                .Select(s => new ExportLocatSuppliersDto()
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    PartsCount = s.Parts.Count,
+                })
+                .ToArray();
+
+            string rootName = "suppliers";
+
+            return SerializeXml(localSuppliers, rootName);
         }
 
         //Helper xml method
@@ -242,7 +286,7 @@ namespace CarDealer
             XmlRootAttribute xmlRoot = new XmlRootAttribute(rootName);
             XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
             namespaces.Add(string.Empty, string.Empty);
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(ExportCarsWithDistantDto[]), xmlRoot);
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(T), xmlRoot);
 
             using StringWriter writer = new StringWriter(sb);
 
